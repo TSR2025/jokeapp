@@ -58,20 +58,46 @@
         opacity: 0.6;
       }
 
-      .status {
-        margin-top: 18px;
-        min-height: 24px;
+      .results {
+        margin-top: 24px;
+        display: grid;
+        gap: 18px;
+        text-align: left;
+      }
+
+      .joke-panel {
+        border-radius: 14px;
+        padding: 18px;
+        border: 1px solid #e2e8f0;
+        background: #f8fafc;
+      }
+
+      .joke-panel h2 {
+        margin: 0 0 6px;
         font-size: 1rem;
+        text-transform: uppercase;
+        letter-spacing: 0.08em;
+      }
+
+      .worker-meta {
+        margin-bottom: 12px;
+        font-size: 0.9rem;
+        color: #475569;
+      }
+
+      .status {
+        min-height: 24px;
+        font-size: 0.95rem;
       }
 
       .setup {
-        margin-top: 18px;
+        margin-top: 12px;
         font-size: 1.05rem;
       }
 
       .punchline {
         margin-top: 8px;
-        font-size: 1.2rem;
+        font-size: 1.15rem;
         font-weight: 700;
       }
 
@@ -89,6 +115,15 @@
           background: #111827;
           box-shadow: 0 12px 32px rgba(0, 0, 0, 0.4);
         }
+
+        .joke-panel {
+          background: #0b1220;
+          border-color: #1f2937;
+        }
+
+        .worker-meta {
+          color: #94a3b8;
+        }
       }
     </style>
   </head>
@@ -96,33 +131,52 @@
     <main class="card">
       <h1>Need a laugh?</h1>
       <button id="jokeButton" type="button">Tell me a joke</button>
-      <div class="status" id="status"></div>
-      <div class="setup" id="setup"></div>
-      <div class="punchline" id="punchline"></div>
+      <section class="results" aria-live="polite">
+        <article class="joke-panel" id="rawJokePanel">
+          <h2>Worker A: Raw Joke</h2>
+          <div class="worker-meta">
+            Source: <span id="rawWorkerUrl">https://YOUR-WORKER-A-URL/joke</span>
+          </div>
+          <div class="status" id="rawStatus"></div>
+          <div class="setup" id="rawSetup"></div>
+          <div class="punchline" id="rawPunchline"></div>
+        </article>
+        <article class="joke-panel" id="chatGptJokePanel">
+          <h2>Worker B: ChatGPT Tooling</h2>
+          <div class="worker-meta">
+            Source: <span id="chatWorkerUrl">https://YOUR-WORKER-B-URL/joke</span>
+          </div>
+          <div class="status" id="chatStatus"></div>
+          <div class="setup" id="chatSetup"></div>
+          <div class="punchline" id="chatPunchline"></div>
+        </article>
+      </section>
     </main>
 
     <script>
-      const WORKER_URL = "https://YOUR-WORKER-URL/joke";
+      const RAW_WORKER_URL = "https://YOUR-WORKER-A-URL/joke";
+      const CHATGPT_WORKER_URL = "https://YOUR-WORKER-B-URL/joke";
 
       const button = document.getElementById("jokeButton");
-      const status = document.getElementById("status");
-      const setup = document.getElementById("setup");
-      const punchline = document.getElementById("punchline");
+      const rawStatus = document.getElementById("rawStatus");
+      const rawSetup = document.getElementById("rawSetup");
+      const rawPunchline = document.getElementById("rawPunchline");
+      const chatStatus = document.getElementById("chatStatus");
+      const chatSetup = document.getElementById("chatSetup");
+      const chatPunchline = document.getElementById("chatPunchline");
 
-      const clearDisplay = () => {
-        status.textContent = "";
-        status.classList.remove("error");
-        setup.textContent = "";
-        punchline.textContent = "";
+      const clearPanel = (statusEl, setupEl, punchlineEl) => {
+        statusEl.textContent = "";
+        statusEl.classList.remove("error");
+        setupEl.textContent = "";
+        punchlineEl.textContent = "";
       };
 
-      button.addEventListener("click", async () => {
-        clearDisplay();
-        button.disabled = true;
-        status.textContent = "Loading…";
+      const loadJoke = async (url, statusEl, setupEl, punchlineEl) => {
+        statusEl.textContent = "Loading…";
 
         try {
-          const response = await fetch(WORKER_URL, { method: "GET" });
+          const response = await fetch(url, { method: "GET" });
           if (!response.ok) {
             throw new Error("Unable to fetch a joke right now.");
           }
@@ -132,13 +186,26 @@
             throw new Error("The joke format looks unexpected.");
           }
 
-          setup.textContent = data.setup;
-          punchline.textContent = data.punchline;
+          setupEl.textContent = data.setup;
+          punchlineEl.textContent = data.punchline;
+          statusEl.textContent = "";
         } catch (error) {
-          status.textContent = error.message;
-          status.classList.add("error");
+          statusEl.textContent = error.message;
+          statusEl.classList.add("error");
+        }
+      };
+
+      button.addEventListener("click", async () => {
+        clearPanel(rawStatus, rawSetup, rawPunchline);
+        clearPanel(chatStatus, chatSetup, chatPunchline);
+        button.disabled = true;
+
+        try {
+          await Promise.all([
+            loadJoke(RAW_WORKER_URL, rawStatus, rawSetup, rawPunchline),
+            loadJoke(CHATGPT_WORKER_URL, chatStatus, chatSetup, chatPunchline),
+          ]);
         } finally {
-          status.textContent = status.textContent === "Loading…" ? "" : status.textContent;
           button.disabled = false;
         }
       });
